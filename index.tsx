@@ -76,7 +76,7 @@ const App = () => {
             scores.E >= scores.I ? 'E' : 'I',
             scores.S >= scores.N ? 'S' : 'N',
             scores.T >= scores.F ? 'T' : 'F',
-            scores.J >= scores.P ? 'P' : 'P',
+            scores.J >= scores.P ? 'J' : 'P',
         ].join('');
     };
 
