@@ -1,288 +1,549 @@
-// Fix: Import React, hooks, and ReactDOM to resolve reference errors.
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import ReactDOM from "react-dom/client";
-import { GoogleGenAI } from "@google/genai";
 
-const ALL_TYPES = [
-    'ISTJ', 'ISFJ', 'INFJ', 'INTJ',
-    'ISTP', 'ISFP', 'INFP', 'INTP',
-    'ESTP', 'ESFP', 'ENFP', 'ENTP',
-    'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ'
+// Types
+interface ComponentType {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+interface StyleOption {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+}
+
+interface FeatureOption {
+  id: string;
+  name: string;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  tags: string[];
+  description: string;
+}
+
+// Data
+const QUICK_TEMPLATES: Template[] = [
+  { id: 'cta', name: 'CTA 버튼', icon: '🔥', color: '#f97316', tags: [], description: '' },
+  { id: 'mobile-card', name: '모바일 카드', icon: '📱', color: '#8b5cf6', tags: [], description: '' },
+  { id: 'form', name: '폼 입력', icon: '📋', color: '#f59e0b', tags: [], description: '' },
 ];
 
-const COMPATIBILITY_DATA = {
-    'INFP': { best: ['ENFJ', 'ENTJ'], good: ['INFP', 'ENFP', 'INFJ', 'INTJ', 'INTP', 'ENTP'], bad: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ESFJ', 'ISTJ', 'ESTJ'] },
-    'INFJ': { best: ['ENFP', 'ENTP'], good: ['INFP', 'INFJ', 'ENFJ', 'ENTJ', 'INTJ', 'INTP'], bad: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ESFJ', 'ISTJ', 'ESTJ'] },
-    'ENFP': { best: ['INFJ', 'INTJ'], good: ['INFP', 'ENFP', 'ENFJ', 'ENTJ', 'INTP', 'ENTP'], bad: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ESFJ', 'ISTJ', 'ESTJ'] },
-    'ENFJ': { best: ['INFP', 'ISFP'], good: ['ENFP', 'INFJ', 'ENFJ', 'ENTJ', 'INTJ', 'INTP'], bad: ['ESFJ', 'ISTJ', 'ESTJ', 'ISFJ', 'ESTP', 'ISTP'] },
-    'INTJ': { best: ['ENFP', 'ENTP'], good: ['INFP', 'INFJ', 'ENFJ', 'ENTJ', 'INTJ', 'INTP'], bad: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ESFJ', 'ISTJ', 'ESTJ'] },
-    'INTP': { best: ['ESTJ', 'ENTJ'], good: ['INFP', 'ENFP', 'INFJ', 'ENFJ', 'INTJ', 'INTP'], bad: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ESFJ'] },
-    'ENTP': { best: ['INFJ', 'INTJ'], good: ['INFP', 'ENFP', 'ENFJ', 'ENTJ', 'INTP', 'ENTP'], bad: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ESFJ', 'ISTJ', 'ESTJ'] },
-    'ENTJ': { best: ['INFP', 'INTP'], good: ['ENFP', 'INFJ', 'ENFJ', 'ENTJ', 'INTJ', 'ENTP'], bad: ['ESFP', 'ISFP', 'ESTP', 'ISTP', 'ESFJ', 'ISFJ'] },
-    'ISFP': { best: ['ENFJ', 'ESFJ', 'ESTJ'], good: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ISTJ'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
-    'ISTP': { best: ['ESFJ', 'ESTJ'], good: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ISFJ', 'ISTJ'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
-    'ESTP': { best: ['ISFJ', 'ISTJ'], good: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ESFJ', 'ESTJ'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
-    'ESFP': { best: ['ISFJ', 'ISTJ'], good: ['ISFP', 'ESFP', 'ISTP', 'ESTP', 'ESFJ', 'ESTJ'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
-    'ISTJ': { best: ['ESFP', 'ESTP'], good: ['ISFJ', 'ISTJ', 'ESTJ', 'ISFP', 'ISTP'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
-    'ISFJ': { best: ['ESFP', 'ESTP'], good: ['ISTJ', 'ISFJ', 'ESFJ', 'ISFP', 'ISTP'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
-    'ESTJ': { best: ['INTP', 'ISFP', 'ISTP'], good: ['ESFJ', 'ISTJ', 'ISFJ', 'ESTP', 'ESFP'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
-    'ESFJ': { best: ['ISFP', 'ISTP'], good: ['ESFJ', 'ISTJ', 'ISFJ', 'ESTJ', 'ESTP', 'ESFP'], bad: ['INFP', 'ENFP', 'INFJ', 'ENFJ'] },
+const TEMPLATES: Template[] = [
+  { id: 'glass-modal', name: '글래스 모달', icon: '💎', color: '#22c55e', tags: ['glassmorphism', 'animation', 'accessibility'], description: '투명한 글래스 모달' },
+  { id: 'dark-nav', name: '다크 네비게이션', icon: '🌙', color: '#f59e0b', tags: ['dark', 'responsive', 'hover'], description: '세련된 다크 네비게이션' },
+  { id: 'animation-feedback', name: '애니메이션 피드백', icon: '✨', color: '#ec4899', tags: ['modern', 'animation', 'accessibility'], description: '생동감 있는 피드백 컴포넌트' },
+];
+
+const COMPONENT_TYPES: ComponentType[] = [
+  { id: 'button', name: '버튼', icon: '⚪' },
+  { id: 'card', name: '카드', icon: '📱' },
+  { id: 'form', name: '폼', icon: '📝' },
+  { id: 'navigation', name: '네비게이션', icon: '🧭' },
+  { id: 'modal', name: '모달', icon: '🔵' },
+  { id: 'layout', name: '레이아웃', icon: '📐' },
+  { id: 'data-display', name: '데이터 표시', icon: '📊' },
+  { id: 'feedback', name: '피드백', icon: '💡' },
+  { id: 'accessibility', name: '접근성', icon: '♿' },
+  { id: 'typography', name: '타이포그래피', icon: '🖼️' },
+  { id: 'motion', name: '모션', icon: '🎬' },
+  { id: 'scroll', name: '스크롤', icon: '📜' },
+  { id: 'page-transition', name: '페이지 전환', icon: '⚡' },
+  { id: 'color-gradient', name: '컬러 & 그라디언트', icon: '🌈' },
+  { id: 'visual-effects', name: '비주얼 효과', icon: '🎨' },
+  { id: 'custom-cursor', name: '커스텀 커서', icon: '👆' },
+  { id: 'backend', name: '백엔드', icon: '⚙️' },
+  { id: 'security', name: '보안', icon: '🔒' },
+  { id: 'data', name: '데이터', icon: '💾' },
+  { id: 'devops', name: 'DevOps', icon: '🚀' },
+  { id: 'claude-skill', name: 'Claude 스킬', icon: '🤖' },
+  { id: 'image', name: '이미지', icon: '🖼️' },
+  { id: 'video', name: '영상', icon: '🎥' },
+];
+
+const STYLE_OPTIONS: StyleOption[] = [
+  { id: 'minimal', name: '미니멀', color: '#3b82f6', icon: '□' },
+  { id: 'modern', name: '모던', color: '#8b5cf6', icon: '✦' },
+  { id: 'glassmorphism', name: '글래스모피즘', color: '#64748b', icon: '◯' },
+  { id: 'gradient', name: '그라데이션', color: '#f97316', icon: '◐' },
+  { id: 'dark', name: '다크', color: '#1e293b', icon: '🌙' },
+];
+
+const FEATURE_OPTIONS: FeatureOption[] = [
+  { id: 'animation', name: '애니메이션' },
+  { id: 'responsive', name: '반응형' },
+  { id: 'hover', name: '호버 효과' },
+  { id: 'accessibility', name: '접근성' },
+];
+
+// Generate prompt based on selections
+const generatePrompt = (
+  componentType: string | null,
+  style: string | null,
+  features: string[],
+  language: 'ko' | 'en'
+): string => {
+  const component = COMPONENT_TYPES.find(c => c.id === componentType);
+  const styleOption = STYLE_OPTIONS.find(s => s.id === style);
+
+  if (!component) {
+    return language === 'ko'
+      ? '컴포넌트 타입을 선택해주세요.'
+      : 'Please select a component type.';
+  }
+
+  const selectedFeatures = features.map(f => {
+    const feature = FEATURE_OPTIONS.find(fo => fo.id === f);
+    return feature?.name || f;
+  });
+
+  if (language === 'ko') {
+    return `React와 Tailwind CSS를 사용해서 ${styleOption?.name || '모던'}한 스타일의 ${component.name} 컴포넌트를 만들어줘.
+
+요구사항:
+${selectedFeatures.length > 0 ? selectedFeatures.map(f => `- ${f}으로 만들어줘.`).join('\n') : '- 반응형으로 만들어줘.'}
+
+기술 스택:
+- React (함수형 컴포넌트)
+- Tailwind CSS
+- TypeScript
+- lucide-react (아이콘)`;
+  }
+
+  return `Create a ${styleOption?.name || 'modern'} style ${component.name} component using React and Tailwind CSS.
+
+Requirements:
+${selectedFeatures.length > 0 ? selectedFeatures.map(f => `- Make it ${f}.`).join('\n') : '- Make it responsive.'}
+
+Tech Stack:
+- React (Functional Components)
+- Tailwind CSS
+- TypeScript
+- lucide-react (icons)`;
 };
 
-const App = () => {
-    const [step, setStep] = useState('welcome');
-    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-    const [scores, setScores] = useState({ E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 });
-    const [result, setResult] = useState({ type: '', description: '' });
-    const [error, setError] = useState('');
-    const [modalContent, setModalContent] = useState(null); // { type: 'INTJ', description: '...' }
-    const [isLoadingModal, setIsLoadingModal] = useState(false);
-    const [typeDescriptionsCache, setTypeDescriptionsCache] = useState({});
+// Preview Component
+const PreviewComponent: React.FC<{ componentType: string | null; style: string | null }> = ({
+  componentType,
+  style
+}) => {
+  const getPreviewContent = () => {
+    const styleClass = style === 'modern' ? 'modern' : style === 'minimal' ? 'minimal' : '';
 
-    const questions = [
-        { q: "모임이 끝난 후, 당신은 어떤 기분인가요?", a: [{ text: "에너지가 넘치고 더 활동하고 싶다.", type: "E" }, { text: "피곤하고 혼자만의 시간이 필요하다.", type: "I" }] },
-        { q: "당신은 주로 어떻게 정보를 인식하나요?", a: [{ text: "현재 일어나고 있는 실제적인 것에 집중한다.", type: "S" }, { text: "미래의 가능성과 숨겨진 의미를 상상한다.", type: "N" }] },
-        { q: "결정을 내릴 때 무엇을 더 중요하게 생각하나요?", a: [{ text: "논리적이고 객관적인 사실.", type: "T" }, { text: "사람들과의 관계와 감정.", type: "F" }] },
-        { q: "여행 계획을 세울 때 당신의 스타일은?", a: [{ text: "상세한 계획을 미리 세우는 것을 선호한다.", type: "J" }, { text: "상황에 따라 즉흥적으로 결정하는 것을 즐긴다.", type: "P" }] },
-        { q: "처음 만나는 사람들과 있을 때 당신은?", a: [{ text: "먼저 말을 걸고 대화를 시작하는 편이다.", type: "E" }, { text: "다른 사람이 말을 걸어주기를 기다리는 편이다.", type: "I" }] },
-        { q: "새로운 기술을 배울 때 선호하는 방법은?", a: [{ text: "직접 해보면서 단계별로 배우는 것.", type: "S" }, { text: "전체적인 개념과 원리를 먼저 이해하는 것.", type: "N" }] },
-        { q: "친구가 고민을 털어놓을 때 당신의 반응은?", a: [{ text: "문제 해결을 위한 현실적인 조언을 해준다.", type: "T" }, { text: "따뜻한 위로와 공감을 표현한다.", type: "F" }] },
-        { q: "당신의 책상은 보통 어떤 상태인가요?", a: [{ text: "항상 깔끔하게 정리정돈 되어 있다.", type: "J" }, { text: "자유롭고 창의적인 혼돈 상태이다.", type: "P" }] },
-        { q: "주말에 주로 무엇을 하며 보내나요?", a: [{ text: "친구들과 만나거나 새로운 활동을 찾아 나선다.", type: "E" }, { text: "집에서 책을 읽거나 영화를 보며 조용히 보낸다.", type: "I" }] },
-        { q: "영화를 볼 때 당신이 더 흥미를 느끼는 부분은?", a: [{ text: "현실적이고 구체적인 사건 전개.", type: "S" }, { text: "상징적이고 은유적인 메시지.", type: "N" }] },
-        { q: "업무를 처리할 때 더 중요한 것은?", a: [{ text: "효율성과 결과 달성.", type: "T" }, { text: "팀의 조화와 협력적인 분위기.", type: "F" }] },
-        { q: "마감 기한이 다가올 때 당신은?", a: [{ text: "미리 일을 끝내고 여유를 가진다.", type: "J" }, { text: "마감 직전에 집중해서 일을 처리한다.", type: "P" }] },
-        { q: "당신은 자신을 어떤 사람이라고 생각하나요?", a: [{ text: "활동적이고 사교적인 사람.", type: "E" }, { text: "신중하고 내성적인 사람.", type: "I" }] },
-        { q: "익숙한 길과 새로운 길 중 어떤 길을 선호하나요?", a: [{ text: "검증되고 확실한 익숙한 길.", type: "S" }, { text: "호기심을 자극하는 새로운 길.", type: "N" }] },
-        { q: "비판을 들었을 때 당신의 반응은?", a: [{ text: "객관적으로 받아들이고 개선점을 찾으려 한다.", type: "T" }, { text: "개인적으로 상처를 받고 감정이 상한다.", type: "F" }] },
-        { q: "일상생활에서 당신은 어떤 편인가요?", a: [{ text: "체계적이고 예측 가능한 삶을 선호한다.", type: "J" }, { text: "유연하고 자율적인 삶을 선호한다.", type: "P" }] },
-        { q: "에너지를 얻는 방식은?", a: [{ text: "다른 사람들과의 교류를 통해 얻는다.", type: "E" }, { text: "혼자만의 시간을 통해 재충전한다.", type: "I" }] },
-        { q: "세상을 이해하는 방식은?", a: [{ text: "오감을 통해 직접 경험한 사실을 믿는다.", type: "S" }, { text: "직관과 영감을 통해 통찰을 얻는다.", type: "N" }] },
-        { q: "다른 사람을 평가할 때 기준은?", a: [{ text: "그 사람의 능력과 지성.", type: "T" }, { text: "그 사람의 인성과 따뜻함.", type: "F" }] },
-        { q: "갑작스러운 변화에 어떻게 반응하나요?", a: [{ text: "미리 대비하고 계획에 차질이 생기는 것을 불편해한다.", type: "J" }, { text: "새로운 가능성으로 여기고 쉽게 적응한다.", type: "P" }] },
-    ];
-
-    const handleAnswer = (type) => {
-        setScores(prev => ({ ...prev, [type]: prev[type] + 1 }));
-        if (currentQuestionIndex < questions.length - 1) {
-            setCurrentQuestionIndex(prev => prev + 1);
-        } else {
-            setStep('loading');
-        }
-    };
-    
-    const calculateResult = () => {
-        return [
-            scores.E >= scores.I ? 'E' : 'I',
-            scores.S >= scores.N ? 'S' : 'N',
-            scores.T >= scores.F ? 'T' : 'F',
-            scores.J >= scores.P ? 'P' : 'P',
-        ].join('');
-    };
-
-    useEffect(() => {
-        if (step === 'loading') {
-            const mbtiType = calculateResult();
-            fetchDescription(mbtiType, true);
-        }
-    }, [step]);
-
-    const fetchDescription = async (mbtiType, isMainResult = false) => {
-        setError('');
-        try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `MBTI 성격 유형인 ${mbtiType}에 대해 자세히 설명해줘. 주요 특징, 강점, 그리고 보완할 점을 포함해서 전문가가 분석한 것처럼 친절한 말투로 설명해줘.`;
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-            });
-            const cleanedText = response.text.replace(/\*\*/g, '');
-
-            if (isMainResult) {
-                setResult({ type: mbtiType, description: cleanedText });
-                setStep('result');
-            }
-            return cleanedText;
-        } catch (err) {
-            console.error("Gemini API 호출 오류:", err);
-            const errorMsg = '결과를 불러오는 데 실패했습니다. 잠시 후 다시 시도해 주세요.';
-            if (isMainResult) {
-                setError(errorMsg);
-                setResult({ type: mbtiType, description: '오류가 발생하여 설명을 가져올 수 없습니다.' });
-                setStep('result');
-            }
-            return errorMsg;
-        }
-    };
-
-    const handleViewOtherType = async (type) => {
-        if (typeDescriptionsCache[type]) {
-            setModalContent({ type, description: typeDescriptionsCache[type] });
-            return;
-        }
-
-        setIsLoadingModal(true);
-        setModalContent({ type, description: '' });
-        const description = await fetchDescription(type);
-        setTypeDescriptionsCache(prev => ({ ...prev, [type]: description }));
-        setModalContent({ type, description });
-        setIsLoadingModal(false);
-    };
-
-    const restart = () => {
-        setStep('welcome');
-        setCurrentQuestionIndex(0);
-        setScores({ E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 });
-        setResult({ type: '', description: '' });
-        setError('');
-        setTypeDescriptionsCache({});
-    };
-
-    const renderDichotomyBar = (type1, type2, name) => {
-        const score1 = scores[type1];
-        const score2 = scores[type2];
-        const total = score1 + score2;
-        if (total === 0) return null;
-        const percent1 = (score1 / total) * 100;
-
+    switch (componentType) {
+      case 'button':
         return (
-            <div className="preference-item">
-                <div className="preference-labels">
-                    <span>{name.split('/')[0]} ({type1})</span>
-                    <span>{name.split('/')[1]} ({type2})</span>
-                </div>
-                <div className="preference-bar-bg">
-                    <div className="preference-bar-fill" style={{ width: `${percent1}%` }}></div>
-                </div>
-            </div>
+          <div className={`preview-button-demo ${styleClass}`}>
+            <button className="demo-button">Button</button>
+          </div>
         );
-    };
-    
-    const renderContent = () => {
-        switch (step) {
-            case 'quiz':
-                const question = questions[currentQuestionIndex];
-                return (
-                    <div className="quiz-screen">
-                        <div className="progress-bar-container">
-                            <div className="progress-bar" style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}></div>
-                        </div>
-                        <p className="question-counter">질문 {currentQuestionIndex + 1} / {questions.length}</p>
-                        <h2 className="question-text">{question.q}</h2>
-                        <div className="answer-options">
-                            {question.a.map((option, index) => (
-                                <button key={index} className="answer-btn" onClick={() => handleAnswer(option.type)}>
-                                    {option.text}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                );
-            case 'loading':
-                return (
-                    <div className="loading-screen">
-                        <div className="spinner"></div>
-                        <p>결과를 분석 중입니다...</p>
-                    </div>
-                );
-            case 'result':
-                const compat = COMPATIBILITY_DATA[result.type] || { best: [], good: [], bad: [] };
-                return (
-                    <div className="result-screen">
-                        <div className="result-header">
-                            <p>당신의 MBTI 유형은</p>
-                            <div className="result-type">{result.type}</div>
-                        </div>
-                        {error && <p className="error-message">{error}</p>}
+      case 'card':
+        return (
+          <div className={`preview-card-demo ${styleClass}`}>
+            <div className="demo-card">
+              <div className="demo-card-header"></div>
+              <div className="demo-card-body">
+                <div className="demo-card-line"></div>
+                <div className="demo-card-line short"></div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'form':
+        return (
+          <div className={`preview-form-demo ${styleClass}`}>
+            <div className="demo-input"></div>
+            <div className="demo-input"></div>
+            <button className="demo-button small">Submit</button>
+          </div>
+        );
+      case 'navigation':
+        return (
+          <div className={`preview-nav-demo ${styleClass}`}>
+            <div className="demo-nav-item active"></div>
+            <div className="demo-nav-item"></div>
+            <div className="demo-nav-item"></div>
+          </div>
+        );
+      case 'modal':
+        return (
+          <div className={`preview-modal-demo ${styleClass}`}>
+            <div className="demo-modal">
+              <div className="demo-modal-header"></div>
+              <div className="demo-modal-body"></div>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className="preview-placeholder">
+            <span>컴포넌트를 선택하세요</span>
+          </div>
+        );
+    }
+  };
 
-                        <div className="result-grid">
-                            <div className="result-card main-result-card">
-                                <h3>내 유형 분석</h3>
-                                <div className="result-description">{result.description}</div>
-                            </div>
-                            
-                            <div className="result-card">
-                                <h3>나의 성향 분석</h3>
-                                {renderDichotomyBar('E', 'I', '외향/내향')}
-                                {renderDichotomyBar('S', 'N', '감각/직관')}
-                                {renderDichotomyBar('T', 'F', '사고/감정')}
-                                {renderDichotomyBar('J', 'P', '판단/인식')}
-                            </div>
+  const componentName = COMPONENT_TYPES.find(c => c.id === componentType)?.name || 'Component';
 
-                            <div className="result-card">
-                                <h3>유형별 궁합</h3>
-                                <div className="compatibility-group">
-                                    <h4 className="compat-best">천생연분</h4>
-                                    <div className="type-tags">{compat.best.map(t => <span key={t} className="type-tag best">{t}</span>)}</div>
-                                </div>
-                                <div className="compatibility-group">
-                                    <h4 className="compat-good">좋은 관계</h4>
-                                    <div className="type-tags">{compat.good.map(t => <span key={t} className="type-tag good">{t}</span>)}</div>
-                                </div>
-                                <div className="compatibility-group">
-                                    <h4 className="compat-bad">노력이 필요해요</h4>
-                                    <div className="type-tags">{compat.bad.map(t => <span key={t} className="type-tag bad">{t}</span>)}</div>
-                                </div>
-                            </div>
-
-                             <div className="result-card all-types-card">
-                                <h3>다른 유형 살펴보기</h3>
-                                <div className="types-grid">
-                                    {ALL_TYPES.map(type => (
-                                        <button key={type} className="type-button" onClick={() => handleViewOtherType(type)}>
-                                            {type}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <button className="btn" onClick={restart}>다시 테스트하기</button>
-                    </div>
-                );
-            case 'welcome':
-            default:
-                return (
-                    <div className="welcome-screen">
-                        <h1>온라인 MBTI 진단</h1>
-                        <p className="description">나의 성격 유형을 발견해보세요.<br/>20개의 간단한 질문을 통해 당신의 MBTI를 알아볼 수 있습니다.</p>
-                        <button className="btn" onClick={() => setStep('quiz')}>테스트 시작하기</button>
-                    </div>
-                );
-        }
-    };
-
-    return (
-        <div className="app-container">
-            {renderContent()}
-            {modalContent && (
-                <div className="modal-overlay" onClick={() => setModalContent(null)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>{modalContent.type} 유형 분석</h2>
-                            <button className="close-button" onClick={() => setModalContent(null)}>&times;</button>
-                        </div>
-                        <div className="modal-body">
-                            {isLoadingModal ? (
-                                <div className="spinner-container">
-                                    <div className="spinner"></div>
-                                </div>
-                            ) : (
-                                <p>{modalContent.description}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
+  return (
+    <div className="preview-container">
+      <div className="preview-header">
+        <span className="preview-indicator"></span>
+        <span className="preview-name">{componentType ? `Primary${componentName.replace(' ', '')}` : 'Preview'}</span>
+      </div>
+      <div className="preview-window">
+        <div className="preview-window-header">
+          <div className="window-dots">
+            <span className="dot red"></span>
+            <span className="dot yellow"></span>
+            <span className="dot green"></span>
+          </div>
+          {style && <span className="style-badge">{style?.toUpperCase()}</span>}
         </div>
-    );
+        <div className="preview-content">
+          {getPreviewContent()}
+        </div>
+        {componentType && <span className="responsive-badge">responsive</span>}
+      </div>
+    </div>
+  );
 };
 
+// Main App Component
+const App: React.FC = () => {
+  const [selectedComponent, setSelectedComponent] = useState<string | null>('button');
+  const [selectedStyle, setSelectedStyle] = useState<string | null>('modern');
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>(['responsive']);
+  const [promptLanguage, setPromptLanguage] = useState<'ko' | 'en'>('ko');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+
+  const handleComponentSelect = useCallback((id: string) => {
+    setSelectedComponent(prev => prev === id ? null : id);
+  }, []);
+
+  const handleStyleSelect = useCallback((id: string) => {
+    setSelectedStyle(prev => prev === id ? null : id);
+  }, []);
+
+  const handleFeatureToggle = useCallback((id: string) => {
+    setSelectedFeatures(prev =>
+      prev.includes(id)
+        ? prev.filter(f => f !== id)
+        : [...prev, id]
+    );
+  }, []);
+
+  const handleQuickTemplate = useCallback((template: Template) => {
+    switch (template.id) {
+      case 'cta':
+        setSelectedComponent('button');
+        setSelectedStyle('gradient');
+        setSelectedFeatures(['animation', 'hover']);
+        break;
+      case 'mobile-card':
+        setSelectedComponent('card');
+        setSelectedStyle('modern');
+        setSelectedFeatures(['responsive', 'animation']);
+        break;
+      case 'form':
+        setSelectedComponent('form');
+        setSelectedStyle('minimal');
+        setSelectedFeatures(['responsive', 'accessibility']);
+        break;
+    }
+  }, []);
+
+  const handleTemplateSelect = useCallback((template: Template) => {
+    switch (template.id) {
+      case 'glass-modal':
+        setSelectedComponent('modal');
+        setSelectedStyle('glassmorphism');
+        setSelectedFeatures(['animation', 'accessibility']);
+        break;
+      case 'dark-nav':
+        setSelectedComponent('navigation');
+        setSelectedStyle('dark');
+        setSelectedFeatures(['responsive', 'hover']);
+        break;
+      case 'animation-feedback':
+        setSelectedComponent('feedback');
+        setSelectedStyle('modern');
+        setSelectedFeatures(['animation', 'accessibility']);
+        break;
+    }
+  }, []);
+
+  const handleCopyPrompt = useCallback(async () => {
+    const prompt = generatePrompt(selectedComponent, selectedStyle, selectedFeatures, promptLanguage);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, [selectedComponent, selectedStyle, selectedFeatures, promptLanguage]);
+
+  const generatedPrompt = generatePrompt(selectedComponent, selectedStyle, selectedFeatures, promptLanguage);
+
+  return (
+    <div className="app">
+      {/* Header */}
+      <header className="header">
+        <div className="header-left">
+          <span className="logo-icon">✨</span>
+          <h1 className="title">프롬프트 빌더</h1>
+        </div>
+        <p className="subtitle">옵션을 선택하면 프롬프트가 자동으로 생성됩니다</p>
+        <button className="history-btn">
+          <span>🕐</span> 히스토리
+        </button>
+      </header>
+
+      {/* Quick Templates */}
+      <section className="section">
+        <h2 className="section-title">
+          <span className="section-icon">✨</span>
+          빠른 시작 템플릿
+        </h2>
+        <div className="quick-templates">
+          {QUICK_TEMPLATES.map(template => (
+            <button
+              key={template.id}
+              className="quick-template-btn"
+              style={{ '--accent-color': template.color } as React.CSSProperties}
+              onClick={() => handleQuickTemplate(template)}
+            >
+              <span className="template-icon">{template.icon}</span>
+              <span className="template-name">{template.name}</span>
+              <span className="template-arrow">📄</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Navigation Bar (decorative) */}
+      <div className="nav-bar">
+        <div className="nav-logo">
+          <span className="nav-logo-icon">✨</span>
+          <span>VibePrompt</span>
+        </div>
+        <nav className="nav-links">
+          <a href="#" className="nav-link">홈</a>
+          <a href="#" className="nav-link">갤러리</a>
+          <a href="#" className="nav-link">빌더</a>
+          <a href="#" className="nav-link">가이드</a>
+        </nav>
+        <div className="nav-right">
+          <button className="lang-btn">🌐 EN</button>
+          <button className="user-btn">👤 mane23.ai</button>
+        </div>
+      </div>
+
+      {/* Template Cards */}
+      <section className="template-cards">
+        {TEMPLATES.map(template => (
+          <div
+            key={template.id}
+            className="template-card"
+            onClick={() => handleTemplateSelect(template)}
+          >
+            <div className="template-card-icon" style={{ color: template.color }}>
+              {template.icon}
+            </div>
+            <div className="template-card-content">
+              <h3>{template.name}</h3>
+              <p>{template.description}</p>
+              <div className="template-tags">
+                {template.tags.map(tag => (
+                  <span key={tag} className="tag">{tag}</span>
+                ))}
+              </div>
+            </div>
+            <span className="template-card-indicator" style={{ background: template.color }}></span>
+          </div>
+        ))}
+      </section>
+
+      {/* Main Content */}
+      <div className="main-content">
+        {/* Left Panel */}
+        <div className="left-panel">
+          {/* Component Types */}
+          <section className="panel-section">
+            <h2 className="panel-title">
+              <span className="panel-icon">⚙️</span>
+              컴포넌트 타입
+            </h2>
+            <div className="component-grid">
+              {COMPONENT_TYPES.map(component => (
+                <button
+                  key={component.id}
+                  className={`component-btn ${selectedComponent === component.id ? 'active' : ''}`}
+                  onClick={() => handleComponentSelect(component.id)}
+                >
+                  <span className="component-icon">{component.icon}</span>
+                  <span className="component-name">{component.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Styles */}
+          <section className="panel-section">
+            <h2 className="panel-title">
+              <span className="panel-icon">🎨</span>
+              스타일
+            </h2>
+            <div className="style-options">
+              {STYLE_OPTIONS.map(style => (
+                <button
+                  key={style.id}
+                  className={`style-btn ${selectedStyle === style.id ? 'active' : ''}`}
+                  onClick={() => handleStyleSelect(style.id)}
+                >
+                  <div
+                    className="style-preview"
+                    style={{ background: style.color }}
+                  >
+                    {style.id === 'glassmorphism' && <div className="glass-line"></div>}
+                    {style.id === 'gradient' && <div className="gradient-circle"></div>}
+                    {style.id === 'dark' && <div className="dark-line"></div>}
+                    {style.id === 'minimal' && <div className="minimal-box"></div>}
+                    {style.id === 'modern' && <div className="modern-star">✦</div>}
+                  </div>
+                  <span className="style-icon">{style.icon}</span>
+                  <span className="style-name">{style.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Features */}
+          <section className="panel-section">
+            <h2 className="panel-title">
+              <span className="panel-icon">✨</span>
+              기능
+            </h2>
+            <div className="feature-options">
+              {FEATURE_OPTIONS.map(feature => (
+                <button
+                  key={feature.id}
+                  className={`feature-btn ${selectedFeatures.includes(feature.id) ? 'active' : ''}`}
+                  onClick={() => handleFeatureToggle(feature.id)}
+                >
+                  <span className="feature-check">
+                    {selectedFeatures.includes(feature.id) ? '✓' : '○'}
+                  </span>
+                  <span>{feature.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Advanced Options */}
+          <section className="panel-section advanced-section">
+            <button
+              className="advanced-toggle"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              <span className="panel-icon">⚙️</span>
+              <span>세부 옵션</span>
+              <span className="advanced-badge">고급</span>
+              <span className={`arrow ${showAdvanced ? 'open' : ''}`}>▼</span>
+            </button>
+            {showAdvanced && (
+              <div className="advanced-content">
+                <p>추가 세부 옵션이 여기에 표시됩니다.</p>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Right Panel */}
+        <div className="right-panel">
+          {/* Preview */}
+          <section className="panel-section preview-section">
+            <h2 className="panel-title">
+              <span className="panel-icon">👁️</span>
+              미리보기
+            </h2>
+            <PreviewComponent
+              componentType={selectedComponent}
+              style={selectedStyle}
+            />
+          </section>
+
+          {/* Generated Prompt */}
+          <section className="panel-section prompt-section">
+            <div className="prompt-header">
+              <h2 className="panel-title">
+                <span className="panel-icon">✨</span>
+                생성된 프롬프트
+              </h2>
+              <div className="language-toggle">
+                <button
+                  className={`lang-toggle-btn ${promptLanguage === 'ko' ? 'active' : ''}`}
+                  onClick={() => setPromptLanguage('ko')}
+                >
+                  한국어
+                </button>
+                <button
+                  className={`lang-toggle-btn ${promptLanguage === 'en' ? 'active' : ''}`}
+                  onClick={() => setPromptLanguage('en')}
+                >
+                  English
+                </button>
+              </div>
+            </div>
+            <div className="prompt-content">
+              <pre>{generatedPrompt}</pre>
+              <button className="copy-btn" onClick={handleCopyPrompt}>
+                {copiedPrompt ? '✓ 복사됨' : '📋 복사'}
+              </button>
+            </div>
+          </section>
+
+          {/* Tip */}
+          <div className="tip-box">
+            <span className="tip-icon">💡</span>
+            <div className="tip-content">
+              <strong>팁</strong>
+              <p>세부 옵션을 활성화하면 더 구체적인 프롬프트를 생성할 수 있습니다. 색상, 크기, 변형 등을 세밀하게 조절해보세요!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="footer">
+        <div className="footer-left">
+          <span className="footer-logo">✨</span>
+          <span>© 2024 VibePrompt. All rights reserved.</span>
+        </div>
+        <div className="footer-right">
+          Made with <span className="heart">❤️</span> for vibe coders
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+// Render
 const container = document.getElementById('root');
 if (container) {
-    const root = ReactDOM.createRoot(container);
-    root.render(
-        <React.StrictMode>
-            <App />
-        </React.StrictMode>
-    );
+  const root = ReactDOM.createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 }
